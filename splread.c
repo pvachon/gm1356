@@ -265,6 +265,7 @@ int main(int argc, char const *argv[])
     config_get_boolean(cfg, &fast_mode, "fastMode");
     config_get_boolean(cfg, &measure_dbc, "measuredBC");
 
+    /* Grab the range, in decibels, from the config */
     if (!FAILED(config_get_string(cfg, &range_str, "range"))) {
         bool found = false;
 
@@ -293,6 +294,7 @@ int main(int argc, char const *argv[])
 
     DIAG("HID device: %p", dev);
 
+    /* Set the configuration we just read in */
     if (FAILED(splread_set_config(dev, range, fast_mode, measure_dbc))) {
         SPL_MSG(SEV_FATAL, "BAD-CONFIG", "Failed to load configuration, aborting.");
         goto done;
@@ -302,15 +304,19 @@ int main(int argc, char const *argv[])
         aresult_t tret = A_OK;
         uint8_t report[8] = { GM1356_COMMAND_CAPTURE };
 
+        /* Send a capture/trigger command */
         if (FAILED(splread_send_req(dev, report))) {
             SPL_MSG(SEV_FATAL, "BAD-REQ", "Failed to send read data request");
             goto done;
         }
 
+        /* Read the response; if we time out, just fire up the loop again */
         if (FAILED(tret = splread_read_resp(dev, report, sizeof(report), interval))) {
             if (A_E_TIMEOUT != tret) {
                 SPL_MSG(SEV_FATAL, "BAD-RESP", "Did not get response, aborting.");
                 goto done;
+            } else {
+                continue;
             }
         } else {
             uint16_t deci_db = report[0] << 8 | report[1];
@@ -324,6 +330,7 @@ int main(int argc, char const *argv[])
                     );
         }
 
+        /* Sleep until the next measurement interval */
         usleep(interval / 1000ul);
     } while (app_running());
 
