@@ -13,8 +13,28 @@
 
 #define SPL_MSG(sev, ident, message, ...)     MESSAGE("SPL", sev, ident, message, ##__VA_ARGS__)
 
-#define SPLMETER_VID    0x64bd
-#define SPLMETER_PID    0x74e3
+#define GM1356_SPLMETER_VID    0x64bd
+#define GM1356_SPLMETER_PID    0x74e3
+
+#define GM1356_FAST_MODE        0x40
+#define GM1356_HOLD_MAX_MODE    0x20
+#define GM1356_MEASURE_DBC      0x10
+
+#define GM1356_RANGE_30_130_DB  0x0
+#define GM1356_RANGE_30_80_DB   0x1
+#define GM1356_RANGE_50_100_DB  0x2
+#define GM1356_RANGE_60_110_DB  0x3
+#define GM1356_RANGE_80_130_DB  0x4
+
+#define GM1356_FLAGS_RANGE_MASK 0xf
+
+static const char *gm1356_range_str[] = {
+    "30-130 dB",
+    "30-80 dB",
+    "50-100 dB",
+    "60-110 dB",
+    "80-130 dB",
+};
 
 static
 aresult_t splread_find_device(hid_device **pdev, uint16_t vid, uint16_t pid, wchar_t const *serial)
@@ -195,7 +215,7 @@ int main(int argc, char const *argv[])
     TSL_BUG_IF_FAILED(app_init("splread", cfg));
     TSL_BUG_IF_FAILED(app_sigint_catch(NULL));
 
-    if (FAILED(splread_find_device(&dev, SPLMETER_VID, SPLMETER_PID, NULL))) {
+    if (FAILED(splread_find_device(&dev, GM1356_SPLMETER_VID, GM1356_SPLMETER_PID, NULL))) {
         goto done;
     }
 
@@ -217,7 +237,14 @@ int main(int argc, char const *argv[])
             }
         } else {
             uint16_t deci_db = response[0] << 8 | response[1];
-            SPL_MSG(SEV_INFO, "MEASUREMENT", "%4.2f dB SPL", (double)deci_db/10.0);
+            uint8_t flags = response[2],
+                    range = response[2] & 0xf;
+
+            SPL_MSG(SEV_INFO, "MEASUREMENT", "%4.2f dB%c SPL (%s, range %s)", (double)deci_db/10.0,
+                    flags & GM1356_MEASURE_DBC ? 'C' : 'A',
+                    flags & GM1356_FAST_MODE ? "FAST" : "SLOW",
+                    range > 0x4 ? "UNKNOWN" : gm1356_range_str[range]
+                    );
         }
 
         usleep(500000ul);

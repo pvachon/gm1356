@@ -30,7 +30,7 @@ following:
  1. The protocol is USB-HID carried over a full-speed USB link
  2. Each HID report (input and output) is 8 bytes long
  3. The first two bytes of the input hid report is the sound level in 100ths of
-    a decibel.
+    a decibel. The subsequent byte is a status byte.
 
 Still working out the polling command meaning, and what the remaining 6 bytes
 of the HID report mean.
