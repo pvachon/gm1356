@@ -11,6 +11,8 @@
 
 #include <wchar.h>
 #include <string.h>
+#include <stdio.h>
+#include <time.h>
 
 #define SPL_MSG(sev, ident, message, ...)     MESSAGE("SPL", sev, ident, message, ##__VA_ARGS__)
 
@@ -175,6 +177,7 @@ aresult_t splread_read_resp(hid_device *dev, uint8_t *response, size_t response_
         }
     }
 
+#ifdef DEBUG_MESSAGES
     SPL_MSG(SEV_INFO, "RESPONSE", "%02x:%02x:%02x:%02x - %02x:%02x:%02x:%02x",
             response[0],
             response[1],
@@ -184,6 +187,7 @@ aresult_t splread_read_resp(hid_device *dev, uint8_t *response, size_t response_
             response[5],
             response[6],
             response[7]);
+#endif
 
 done:
     return ret;
@@ -322,12 +326,26 @@ int main(int argc, char const *argv[])
             uint16_t deci_db = report[0] << 8 | report[1];
             uint8_t flags = report[2],
                     range_v = report[2] & 0xf;
+            time_t now = time(NULL);
+            struct tm *gmt = gmtime(&now);
 
+#ifdef DEBUG_MESSAGES
             SPL_MSG(SEV_INFO, "MEASUREMENT", "%4.2f dB%c SPL (%s, range %s)", (double)deci_db/10.0,
                     flags & GM1356_MEASURE_DBC ? 'C' : 'A',
                     flags & GM1356_FAST_MODE ? "FAST" : "SLOW",
                     range > 0x4 ? "UNKNOWN" : gm1356_range_str[range_v]
                     );
+#endif
+
+            fprintf(stdout, "{\"measured\":%4.2f,\"mode\":\"%s\",\"freqMode\":\"%s\","
+                    "\"range\":\"%s\",\"timestamp\":\"%04i-%02i-%02i %02i:%02i:%02i UTC\"}\n",
+                    (double)deci_db/10.0,
+                    flags & GM1356_FAST_MODE ? "fast" : "slow",
+                    flags & GM1356_MEASURE_DBC ? "dBC" : "dBA",
+                    gm1356_range_str[range_v],
+                    gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday, gmt->tm_hour, gmt->tm_min, gmt->tm_sec
+                   );
+            fflush(stdout);
         }
 
         /* Sleep until the next measurement interval */
