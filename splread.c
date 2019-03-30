@@ -1,3 +1,11 @@
+/* splread.c -- Read data back from the GM1356 Sound Level Meter
+ *
+ * Copyright (C) 2019 Phil Vachon <phil@security-embedded.com>
+ * All rights reserved.
+ *
+ * This software may be modified and distributed under the terms
+ * of the BSD license.  See the LICENSE file for details.
+ */
 #include <config/engine.h>
 
 #include <app/app.h>
