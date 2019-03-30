@@ -13,20 +13,23 @@
 
 #define SPL_MSG(sev, ident, message, ...)     MESSAGE("SPL", sev, ident, message, ##__VA_ARGS__)
 
-#define GM1356_SPLMETER_VID    0x64bd
-#define GM1356_SPLMETER_PID    0x74e3
+#define GM1356_SPLMETER_VID         0x64bd
+#define GM1356_SPLMETER_PID         0x74e3
 
-#define GM1356_FAST_MODE        0x40
-#define GM1356_HOLD_MAX_MODE    0x20
-#define GM1356_MEASURE_DBC      0x10
+#define GM1356_FAST_MODE            0x40
+#define GM1356_HOLD_MAX_MODE        0x20
+#define GM1356_MEASURE_DBC          0x10
 
-#define GM1356_RANGE_30_130_DB  0x0
-#define GM1356_RANGE_30_80_DB   0x1
-#define GM1356_RANGE_50_100_DB  0x2
-#define GM1356_RANGE_60_110_DB  0x3
-#define GM1356_RANGE_80_130_DB  0x4
+#define GM1356_RANGE_30_130_DB      0x0
+#define GM1356_RANGE_30_80_DB       0x1
+#define GM1356_RANGE_50_100_DB      0x2
+#define GM1356_RANGE_60_110_DB      0x3
+#define GM1356_RANGE_80_130_DB      0x4
 
-#define GM1356_FLAGS_RANGE_MASK 0xf
+#define GM1356_FLAGS_RANGE_MASK     0xf
+
+#define GM1356_COMMAND_CAPTURE      0xb3
+#define GM1356_COMMAND_CONFIGURE    0x56
 
 static const char *gm1356_range_str[] = {
     "30-130 dB",
@@ -119,15 +122,14 @@ done:
 }
 
 static
-aresult_t splread_send_req(hid_device *dev)
+aresult_t splread_send_req(hid_device *dev, uint8_t *report)
 {
     aresult_t ret = A_OK;
-
-    uint8_t report[8] = { 0xb3, 0x5c, 0x72, 0x77, 0x39, 0x59, 0x72, 0x77 };
 
     int written = 0;
 
     TSL_ASSERT_ARG(NULL != dev);
+    TSL_ASSERT_ARG(NULL != report);
 
     if (8 != (written = hid_write(dev, report, 8))) {
         SPL_MSG(SEV_ERROR, "REQUEST-FAIL", "Failed to write 8 bytes to device (wrote %d): %ls", written, hid_error(dev));
@@ -187,6 +189,44 @@ done:
     return ret;
 }
 
+static
+aresult_t splread_set_config(hid_device *dev, unsigned int range, bool fast, bool dbc)
+{
+    aresult_t ret = A_OK;
+
+    uint8_t command[8] = { 0x0 };
+    aresult_t rret = A_OK;
+
+    TSL_ASSERT_ARG(NULL != dev);
+    TSL_ASSERT_ARG(range <= 0x4);
+
+    command[0] = GM1356_COMMAND_CONFIGURE;
+    command[1] |= range;
+
+    if (true == fast) {
+        command[1] |= GM1356_FAST_MODE;
+    }
+
+    if (true == dbc) {
+        command[1] |= GM1356_MEASURE_DBC;
+    }
+
+    if (FAILED(splread_send_req(dev, command))) {
+        SPL_MSG(SEV_FATAL, "CONFIG-FAIL", "Failed to set configuration for SPL meter, aborting");
+        ret = A_E_INVAL;
+        goto done;
+    }
+
+    if (FAILED(rret = splread_read_resp(dev, command, sizeof(command), 500))) {
+        SPL_MSG(SEV_FATAL, "CONFIG-NO-ACK", "Did not get the configuration packet acknowledgement, aborting.");
+        ret = A_E_INVAL;
+        goto done;
+    }
+
+done:
+    return ret;
+}
+
 int main(int argc, char const *argv[])
 {
     int ret = EXIT_FAILURE;
@@ -221,24 +261,29 @@ int main(int argc, char const *argv[])
 
     DIAG("HID device: %p", dev);
 
+    if (FAILED(splread_set_config(dev, GM1356_RANGE_50_100_DB, true, false))) {
+        SPL_MSG(SEV_FATAL, "BAD-CONFIG", "Failed to load configuration, aborting.");
+        goto done;
+    }
+
     do {
         aresult_t tret = A_OK;
-        uint8_t response[8] = { 0 };
+        uint8_t report[8] = { GM1356_COMMAND_CAPTURE };
 
-        if (FAILED(splread_send_req(dev))) {
+        if (FAILED(splread_send_req(dev, report))) {
             SPL_MSG(SEV_FATAL, "BAD-REQ", "Failed to send read data request");
             goto done;
         }
 
-        if (FAILED(tret = splread_read_resp(dev, response, sizeof(response), 1000))) {
+        if (FAILED(tret = splread_read_resp(dev, report, sizeof(report), 500))) {
             if (A_E_TIMEOUT != tret) {
                 SPL_MSG(SEV_FATAL, "BAD-RESP", "Did not get response, aborting.");
                 goto done;
             }
         } else {
-            uint16_t deci_db = response[0] << 8 | response[1];
-            uint8_t flags = response[2],
-                    range = response[2] & 0xf;
+            uint16_t deci_db = report[0] << 8 | report[1];
+            uint8_t flags = report[2],
+                    range = report[2] & 0xf;
 
             SPL_MSG(SEV_INFO, "MEASUREMENT", "%4.2f dB%c SPL (%s, range %s)", (double)deci_db/10.0,
                     flags & GM1356_MEASURE_DBC ? 'C' : 'A',
