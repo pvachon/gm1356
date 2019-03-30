@@ -3,5 +3,6 @@
   "productId": "74e3",
   "range": "30-130",
   "fastMode" : true,
-  "measuredBC": false
+  "measuredBC": false,
+  "interval": "500ms"
 }

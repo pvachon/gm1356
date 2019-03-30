@@ -145,13 +145,12 @@ done:
 }
 
 static
-aresult_t splread_read_resp(hid_device *dev, uint8_t *response, size_t response_len, unsigned timeout_millis)
+aresult_t splread_read_resp(hid_device *dev, uint8_t *response, size_t response_len, unsigned timeout_ns)
 {
     aresult_t ret = A_OK;
 
     int read_bytes = 0;
-    uint64_t start_time = 0,
-             timeout_ns = (uint64_t)timeout_millis * 1000000ull;
+    uint64_t start_time = 0;
 
     TSL_ASSERT_ARG(NULL != dev);
     TSL_ASSERT_ARG(NULL != response);
@@ -161,7 +160,7 @@ aresult_t splread_read_resp(hid_device *dev, uint8_t *response, size_t response_
 
     while (8 != read_bytes) {
         int nr_bytes = 0;
-        if (0 > (nr_bytes = hid_read_timeout(dev, &response[read_bytes], response_len + 1 - read_bytes, timeout_millis))) {
+        if (0 > (nr_bytes = hid_read_timeout(dev, &response[read_bytes], response_len + 1 - read_bytes, timeout_ns/1000000ul))) {
             SPL_MSG(SEV_ERROR, "READ-FAIL", "Failed to read back an 8 byte report (got %d): %ls", read_bytes, hid_error(dev));
             ret = A_E_INVAL;
             goto done;
@@ -218,7 +217,8 @@ aresult_t splread_set_config(hid_device *dev, unsigned int range, bool fast, boo
         goto done;
     }
 
-    if (FAILED(rret = splread_read_resp(dev, command, sizeof(command), 500))) {
+    /* Always wait 500ms for the configuration to succeed */
+    if (FAILED(rret = splread_read_resp(dev, command, sizeof(command), 500ul * 1000ul * 1000ul))) {
         SPL_MSG(SEV_FATAL, "CONFIG-NO-ACK", "Did not get the configuration packet acknowledgement, aborting.");
         ret = A_E_INVAL;
         goto done;
@@ -238,6 +238,7 @@ int main(int argc, char const *argv[])
          measure_dbc = false;
     const char *range_str = NULL;
     unsigned range = GM1356_RANGE_30_130_DB;
+    uint64_t interval = 500ul * 1000ul * 1000ul;
 
     hid_device *dev = NULL;
 
@@ -281,6 +282,11 @@ int main(int argc, char const *argv[])
         }
     }
 
+    if (FAILED(config_get_time_interval(cfg, &interval, "interval"))) {
+        SPL_MSG(SEV_INFO, "DEFAULT-INTERVAL", "Setting to default time interval 500ms");
+        interval = 500ul * 1000ul * 1000ul;
+    }
+
     if (FAILED(splread_find_device(&dev, GM1356_SPLMETER_VID, GM1356_SPLMETER_PID, NULL))) {
         goto done;
     }
@@ -301,7 +307,7 @@ int main(int argc, char const *argv[])
             goto done;
         }
 
-        if (FAILED(tret = splread_read_resp(dev, report, sizeof(report), 500))) {
+        if (FAILED(tret = splread_read_resp(dev, report, sizeof(report), interval))) {
             if (A_E_TIMEOUT != tret) {
                 SPL_MSG(SEV_FATAL, "BAD-RESP", "Did not get response, aborting.");
                 goto done;
@@ -318,7 +324,7 @@ int main(int argc, char const *argv[])
                     );
         }
 
-        usleep(500000ul);
+        usleep(interval / 1000ul);
     } while (app_running());
 
     ret = EXIT_SUCCESS;
