@@ -1,4 +1,7 @@
 {
   "vendorId": "64bd",
-  "productId": "74e3"
+  "productId": "74e3",
+  "range": "30-130",
+  "fastMode" : true,
+  "measuredBC": false
 }

@@ -10,6 +10,7 @@
 #include <hidapi.h>
 
 #include <wchar.h>
+#include <string.h>
 
 #define SPL_MSG(sev, ident, message, ...)     MESSAGE("SPL", sev, ident, message, ##__VA_ARGS__)
 
@@ -32,11 +33,11 @@
 #define GM1356_COMMAND_CONFIGURE    0x56
 
 static const char *gm1356_range_str[] = {
-    "30-130 dB",
-    "30-80 dB",
-    "50-100 dB",
-    "60-110 dB",
-    "80-130 dB",
+    "30-130",
+    "30-80",
+    "50-100",
+    "60-110",
+    "80-130",
 };
 
 static
@@ -233,6 +234,11 @@ int main(int argc, char const *argv[])
 
     struct config *cfg CAL_CLEANUP(config_delete) = NULL;
 
+    bool fast_mode = true,
+         measure_dbc = false;
+    const char *range_str = NULL;
+    unsigned range = GM1356_RANGE_30_130_DB;
+
     hid_device *dev = NULL;
 
     SPL_MSG(SEV_INFO, "STARTUP", "Starting the Chinese SPL Meter Reader");
@@ -255,13 +261,33 @@ int main(int argc, char const *argv[])
     TSL_BUG_IF_FAILED(app_init("splread", cfg));
     TSL_BUG_IF_FAILED(app_sigint_catch(NULL));
 
+    config_get_boolean(cfg, &fast_mode, "fastMode");
+    config_get_boolean(cfg, &measure_dbc, "measuredBC");
+
+    if (!FAILED(config_get_string(cfg, &range_str, "range"))) {
+        bool found = false;
+
+        for (size_t i = 0; i < BL_ARRAY_ENTRIES(gm1356_range_str); i++) {
+            if (0 == strcmp(gm1356_range_str[i], range_str)) {
+                range = i;
+                found = true;
+                break;
+            }
+        }
+
+        if (false == found) {
+            SPL_MSG(SEV_FATAL, "UNKNOWN-RANGE", "Unknown dB range configuration entry: %s", range_str);
+            goto done;
+        }
+    }
+
     if (FAILED(splread_find_device(&dev, GM1356_SPLMETER_VID, GM1356_SPLMETER_PID, NULL))) {
         goto done;
     }
 
     DIAG("HID device: %p", dev);
 
-    if (FAILED(splread_set_config(dev, GM1356_RANGE_50_100_DB, true, false))) {
+    if (FAILED(splread_set_config(dev, range, fast_mode, measure_dbc))) {
         SPL_MSG(SEV_FATAL, "BAD-CONFIG", "Failed to load configuration, aborting.");
         goto done;
     }
@@ -283,12 +309,12 @@ int main(int argc, char const *argv[])
         } else {
             uint16_t deci_db = report[0] << 8 | report[1];
             uint8_t flags = report[2],
-                    range = report[2] & 0xf;
+                    range_v = report[2] & 0xf;
 
             SPL_MSG(SEV_INFO, "MEASUREMENT", "%4.2f dB%c SPL (%s, range %s)", (double)deci_db/10.0,
                     flags & GM1356_MEASURE_DBC ? 'C' : 'A',
                     flags & GM1356_FAST_MODE ? "FAST" : "SLOW",
-                    range > 0x4 ? "UNKNOWN" : gm1356_range_str[range]
+                    range > 0x4 ? "UNKNOWN" : gm1356_range_str[range_v]
                     );
         }
 
