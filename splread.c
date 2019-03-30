@@ -350,7 +350,7 @@ int main(int argc, char const *argv[])
                     (double)deci_db/10.0,
                     flags & GM1356_FAST_MODE ? "fast" : "slow",
                     flags & GM1356_MEASURE_DBC ? "dBC" : "dBA",
-                    gm1356_range_str[range_v],
+                    range_v > 0x4 ? "UNKNOWN" : gm1356_range_str[range_v],
                     gmt->tm_year + 1900, gmt->tm_mon + 1, gmt->tm_mday, gmt->tm_hour, gmt->tm_min, gmt->tm_sec
                    );
             fflush(stdout);
