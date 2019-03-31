@@ -1,0 +1,2 @@
+# Enable everyone to access the GM1356
+SUBSYSTEM=="usb", ACTION=="add", ATTRS{idVendor}=="64bd", ATTRS{idProduct}=="74e3", MODE="0666"

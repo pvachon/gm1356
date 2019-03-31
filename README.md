@@ -22,6 +22,23 @@ output file, called `splread` is invoked with a configuration file. A sample
 configuration file is included in the distributoin, and is called
 `splread.json`.
 
+## I keep having to run this as `root`!!1
+
+Copy the file `99-gm1356.rules` to `/etc/udev/rules.d` then go through your
+distribution's dance to reload `udev` rules. For many it will simply be:
+
+```
+udevadm control -R
+```
+
+then either unplug/replug the device or invoke
+
+```
+udevadm trigger
+```
+
+if you're too lazy to replug.
+
 ## Details
 
 I don't understand the details of the protocol super well, but I can say the
