@@ -91,6 +91,9 @@ unsigned config_range = GM1356_RANGE_30_130_DB;
 static
 uint64_t interval_ms = 500ul;
 
+static
+wchar_t *config_serial = NULL;
+
 /*
  * App state - whether or not we've been asked to terminate
  */
@@ -309,12 +312,13 @@ done:
 static
 void _print_help(const char *name)
 {
-    printf("Usage: %s -i [interval ms] [-h] [-f] [-C] [-r {range}]\n", name);
+    printf("Usage: %s -i [interval ms] [-h] [-f] [-C] [-r {range}] [-S {serial number}]\n", name);
     printf("Where: \n");
     printf(" -i         - polling interval for the device, in milliseconds\n");
     printf(" -h         - get help (this message)\n");
     printf(" -f         - use fast mode\n");
     printf(" -C         - measure dBc instead of dBa\n");
+    printf(" -S         - serial number of device to use (optional - if not set, will use first device found\n");
     printf(" -r [range] - specify the range to operate in (in dB). One of:\n");
     printf("            30-130\n");
     printf("            30-80\n");
@@ -352,7 +356,9 @@ void _parse_args(int argc, char *const *argv)
 {
     int a = -1;
 
-    while (-1 != (a = getopt(argc, argv, "i:fCr:h"))) {
+    size_t serial_len = 0;
+
+    while (-1 != (a = getopt(argc, argv, "i:fCr:S:h"))) {
         switch (a) {
         case 'i':
             interval_ms = strtoull(optarg, NULL, 0);
@@ -380,6 +386,14 @@ void _parse_args(int argc, char *const *argv)
                 /* Don't proceed if we don't have a valid, supported range */
                 exit(EXIT_FAILURE);
             }
+            break;
+
+        case 'S':
+            /* This is a bit shady, but will work */
+            serial_len = strlen(optarg);
+            config_serial = calloc(serial_len + 1, sizeof(wchar_t));
+            mbstowcs(config_serial, optarg, serial_len + 1);
+            SPL_MSG(SEV_INFO, "DEVICE-SERIAL-NUMBER", "Using device with serial number %S", config_serial);
             break;
         }
     }
