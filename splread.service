@@ -1,0 +1,17 @@
+[Unit]
+Description=splread Service
+Requires=splread.socket
+After=splread.socket
+
+[Service]
+EnvironmentFile=/home/herbivore/etc/splread.env
+Sockets=splread.socket
+StandardInput=null
+StandardOutput=fd:splread.socket
+StandardError=journal
+ExecStart=/home/herbivore/bin/splread $ARGS
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

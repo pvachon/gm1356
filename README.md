@@ -9,7 +9,6 @@ and monitor sound levels over a long period of time.
 ## Requirements
 
 You will need to have installed the following:
- * The TSL (https://github.com/pvachon/tsl)
  * `libhidapi`
 
 For Ubuntu Linux, you can install `libhidapi` as follows:
@@ -18,9 +17,29 @@ apt-get install libhidapi-dev
 ```
 
 You can simply build the tool by invoking `make` in the source directory. The
-output file, called `splread` is invoked with a configuration file. A sample
-configuration file is included in the distributoin, and is called
-`splread.json`.
+output file, called `splread` is invoked with the appropriate command line
+arguments.
+
+For information on invoking the binary, run `splread` with the `-h` command
+line argument.
+
+## I want to run this automatically!
+
+You can install the included `systemd` units as a user. There are two required
+units - one for a FIFO that `splread` will feed its messages to, and one for
+the `splread` service itself. Edit them both to ensure the paths to the FIFO,
+the `EnvironmentFile` and the service `ExecStart` make sense for your machine.
+
+Ediut the contents of the environment file to match your use case. There is a
+sample `splread.env` file included in the source code distribution.
+
+Once you've done that, copy or link the files to `~/.config/systemd/user/` and
+invoke:
+ * `systemctl --user daemon-reload`
+ * `systemctl --user start splread.service`;
+
+You should be good to go. Any status or error messages from `splread` will go
+to the journal for later consumption.
 
 ## I keep having to run this as `root`!!1
 

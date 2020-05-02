@@ -1,0 +1,7 @@
+[Unit]
+Description=splread Output Socket
+
+[Socket]
+RemoveOnStop=true
+SocketMode=0600
+ListenFIFO=/home/herbivore/var/splread.fifo
