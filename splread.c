@@ -83,7 +83,7 @@ static
 bool fast_mode = false;
 
 static
-bool measure_dbc = true;
+bool measure_dbc = false;
 
 static
 unsigned config_range = GM1356_RANGE_30_130_DB;
