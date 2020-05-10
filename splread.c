@@ -362,7 +362,7 @@ void _parse_args(int argc, char *const *argv)
         switch (a) {
         case 'i':
             interval_ms = strtoull(optarg, NULL, 0);
-            SPL_MSG(SEV_INFO, "POLL-INTERVAL", "Setting poll interval to %zu milliseconds", interval_ms);
+            SPL_MSG(SEV_INFO, "POLL-INTERVAL", "Setting poll interval to %llu milliseconds", (unsigned long long)interval_ms);
             break;
 
         case 'h':
